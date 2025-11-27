@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voice Command & Word-by-Word Translate (Web Speech API)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0 auto;
+      max-width: 600px;
+      padding: 40px;
+      background: #f4f4f9;
+      transition: background 0.4s;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    button,
+    select {
+      padding: 13px 24px;
+      margin: 10px 5px;
+      font-size: 16px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      background: #3498db;
+      color: #fff;
+      transition: background 0.3s;
+    }
+    button:hover,
+    select:hover {
+      background: #2980b9;
+    }
+    #result-container {
+      margin-top: 34px;
+      padding: 22px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+    }
+    span#transcript {
+      color: #444;
+      font-weight: bold;
+    }
+    span#translation {
+      color: #154915;
+      font-weight: bold;
+      white-space: pre-wrap;
+    }
+    span#status {
+      color: #888;
+      font-style: italic;
+    }
+    label {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Voice Command & Word-by-Word Translation (Web Speech API)</h1>
+  <label for="language">Translate to:</label>
+  <select id="language">
+    <option value="en-US">English</option>
+    <option value="kn-IN">[translate:Kannada]</option>
+    <option value="ta-IN">[translate:Tamil]</option>
+    <option value="te-IN">[translate:Telugu]</option>
+    <option value="hi-IN">[translate:Hindi]</option>
+  </select>
+  <button id="start-btn">Start Listening</button>
+  <button id="stop-btn">Stop Listening</button>
+  <div id="result-container">
+    <p>Transcript: <span id="transcript"></span></p>
+    <p>Translation: <span id="translation"></span></p>
+    <p>Status: <span id="status">Idle</span></p>
+  </div>
+
+  <script>
+    // Basic word-level dictionary for demo
+    const dictionary = {
+      "reset": {
+        "kn-IN": "ಮರುಹೊಂದಿಸಿ",
+        "ta-IN": "மீட்டமைக்கவும்",
+        "te-IN": "రీసెట్ చేయండి",
+        "hi-IN": "रीसेट करें",
+        "en-US": "reset",
+      },
+      "background": {
+        "kn-IN": "ಹಿನ್ನೆಲೆ",
+        "ta-IN": "பின்னணி",
+        "te-IN": "నేపథ్యం",
+        "hi-IN": "पृष्ठभूमि",
+        "en-US": "background",
+      },
+      "red": {
+        "kn-IN": "ಕೆಂಪು",
+        "ta-IN": "சிவப்பு",
+        "te-IN": "ఎరుపు",
+        "hi-IN": "लाल",
+        "en-US": "red",
+      },
+      "blue": {
+        "kn-IN": "ನೀಲಿ",
+        "ta-IN": "நீலம்",
+        "te-IN": "నీలం",
+        "hi-IN": "नीला",
+        "en-US": "blue",
+      },
+      "green": {
+        "kn-IN": "ಹಸಿರು",
+        "ta-IN": "பச்சை",
+        "te-IN": "ఆకుపచ్చ",
+        "hi-IN": "हरा",
+        "en-US": "green",
+      },
+      "yellow": {
+        "kn-IN": "ಹಳದಿ",
+        "ta-IN": "மஞ்சள்",
+        "te-IN": "పసుపు",
+        "hi-IN": "पीला",
+        "en-US": "yellow",
+      },
+      "white": {
+        "kn-IN": "ಬಿಳಿ",
+        "ta-IN": "வெள்ளை",
+        "te-IN": "తెలుపు",
+        "hi-IN": "सफेद",
+        "en-US": "white",
+      },
+      "black": {
+        "kn-IN": "ಕಪ್ಪು",
+        "ta-IN": "கருப்பு",
+        "te-IN": "నలుపు",
+        "hi-IN": "काला",
+        "en-US": "black",
+      },
+      "change": {
+        "kn-IN": "ಬದಲಿಸಿ",
+        "ta-IN": "மாற்று",
+        "te-IN": "మార్చు",
+        "hi-IN": "बदलें",
+        "en-US": "change",
+      },
+      "hello": {
+    "kn-IN": "ಹಲೋ",
+    "ta-IN": "வணக்கம்",
+    "te-IN": "హలో",
+    "hi-IN": "नमस्ते",
+    "en-US": "hello"
+  },
+  "please": {
+    "kn-IN": "ದಯವಿಟ್ಟು",
+    "ta-IN": "தயவு செய்து",
+    "te-IN": "దయచేసి",
+    "hi-IN": "कृपया",
+    "en-US": "please"
+  },
+  "open": {
+    "kn-IN": "ತೆರೆ",
+    "ta-IN": "திற",
+    "te-IN": "తెరువు",
+    "hi-IN": "खोलो",
+    "en-US": "open"
+  },
+  "close": {
+    "kn-IN": "ಮುಚ್ಚಿ",
+    "ta-IN": "மூடு",
+    "te-IN": "మూసి",
+    "hi-IN": "बंद करो",
+    "en-US": "close"
+  },
+  "light": {
+    "kn-IN": "ಬೆಳಕು",
+    "ta-IN": "ஒளி",
+    "te-IN": "ప్రకాశం",
+    "hi-IN": "प्रकाश",
+    "en-US": "light"
+  },
+  "dark": {
+    "kn-IN": "ಕತ್ತಲೆ",
+    "ta-IN": "இருள்",
+    "te-IN": "చీకటి",
+    "hi-IN": "अंधेरा",
+    "en-US": "dark"
+  },
+  "start": {
+    "kn-IN": "ಪ್ರಾರಂಭಿಸಿ",
+    "ta-IN": "துவங்கு",
+    "te-IN": "ప్రారంభించండి",
+    "hi-IN": "शुरू करें",
+    "en-US": "start"
+  },
+  "stop": {
+    "kn-IN": "ನಿಲ್ಲಿಸಿ",
+    "ta-IN": "நிறுத்து",
+    "te-IN": "ఆపండి",
+    "hi-IN": "रुकें",
+    "en-US": "stop"
+  },
+  "save": {
+    "kn-IN": "ಉಳಿಸಿ",
+    "ta-IN": "சேமிக்கவும்",
+    "te-IN": "సేవ్ చేయండి",
+    "hi-IN": "सेव करें",
+    "en-US": "save"
+  },
+  "delete": {
+    "kn-IN": "ಅಳಿಸಿ",
+    "ta-IN": "நீக்கு",
+    "te-IN": "తొలగించు",
+    "hi-IN": "हटाएँ",
+    "en-US": "delete"
+  },
+  "next": {
+    "kn-IN": "ಮುಂದಿನ",
+    "ta-IN": "அடுத்தது",
+    "te-IN": "తదుపరి",
+    "hi-IN": "आगे",
+    "en-US": "next"
+  },
+  "previous": {
+    "kn-IN": "ಹಿಂದಿನದು",
+    "ta-IN": "முந்தையது",
+    "te-IN": "మునుపటి",
+    "hi-IN": "पिछला",
+    "en-US": "previous"
+  },
+  "exit": {
+    "kn-IN": "ನಿರ್ಗಮಿಸಿ",
+    "ta-IN": "வெளியேறு",
+    "te-IN": "బయటకు పో",
+    "hi-IN": "बाहर जाएं",
+    "en-US": "exit"
+  },
+  "home": {
+    "kn-IN": "ಮುಖಪುಟ",
+    "ta-IN": "முகப்பு",
+    "te-IN": "ప్రధాన పేజీ",
+    "hi-IN": "मुख पृष्ठ",
+    "en-US": "home"
+  },
+  "info": {
+    "kn-IN": "ಮಾಹಿತಿ",
+    "ta-IN": "தகவல்",
+    "te-IN": "సమాచారం",
+    "hi-IN": "जानकारी",
+    "en-US": "info"
+  },
+  "how are you": {
+    "kn-IN": "ನೀವು ಹೇಗಿದ್ದೀರಾ",
+    "ta-IN": "நீங்கள் எப்படி இருக்கின்றீர்கள்",
+    "te-IN": "మీరు ఎలా ఉన్నారు",
+    "hi-IN": "आप कैसे हैं",
+    "en-US": "how are you"
+  },
+  "did you eat breakfast": {
+    "kn-IN": "ನೀವು ಉಪಹಾರ ತಿಂದೀರಾ",
+    "ta-IN": "நீங்கள் காலை உணவு உண்டீர்களா",
+    "te-IN": "మీరూ అల్పాహారం తిన్నారా",
+    "hi-IN": "क्या आपने नाश्ता किया",
+    "en-US": "did you eat breakfast"
+  },
+  "good morning": {
+    "kn-IN": "ಶುಭೋದಯ",
+    "ta-IN": "காலை வணக்கம்",
+    "te-IN": "శుభోదయం",
+    "hi-IN": "सुप्रभात",
+    "en-US": "good morning"
+  },
+  "good night": {
+    "kn-IN": "ಶುಭ ರಾತ್ರಿ",
+    "ta-IN": "இனிய இரவு",
+    "te-IN": "శుభ రాత్రి",
+    "hi-IN": "शुभ रात्रि",
+    "en-US": "good night"
+  },
+  "thank you": {
+    "kn-IN": "ಧನ್ಯವಾದಗಳು",
+    "ta-IN": "நன்றி",
+    "te-IN": "ధన్యవాదులు",
+    "hi-IN": "धन्यवाद",
+    "en-US": "thank you"
+  },
+  "see you soon": {
+    "kn-IN": "ಶೀಘ್ರದಲ್ಲೇ ಭೇಟಿಯಾಗೋಣ",
+    "ta-IN": "விரைவில் சந்திப்போம்",
+    "te-IN": "త్వరలో కలుద్దాం",
+    "hi-IN": "जल्दी मिलेंगे",
+    "en-US": "see you soon"
+  },
+  "what is your name": {
+    "kn-IN": "ನಿಮ್ಮ ಹೆಸರು ಏನು",
+    "ta-IN": "உங்கள் பெயர் என்ன",
+    "te-IN": "మీ పేరు ఏమిటి",
+    "hi-IN": "आपका नाम क्या है",
+    "en-US": "what is your name"
+  },
+  "my name is": {
+    "kn-IN": "ನನ್ನ ಹೆಸರು",
+    "ta-IN": "என் பெயர்",
+    "te-IN": "నా పేరు",
+    "hi-IN": "मेरा नाम है",
+    "en-US": "my name is"
+  },
+  "where are you going": {
+    "kn-IN": "ನೀವು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತಿದ್ದೀರಿ",
+    "ta-IN": "நீங்கள் எங்கே செல்கிறீர்கள்",
+    "te-IN": "మీరు ఎక్కడికి వెళ్తున్నారు",
+    "hi-IN": "आप कहाँ जा रहे हैं",
+    "en-US": "where are you going"
+  },
+  "i am going home": {
+    "kn-IN": "ನಾನು ಮನೆಗೆ ಹೋಗುತ್ತಿದ್ದೇನೆ",
+    "ta-IN": "நான் வீட்டிற்குச் செல்கிறேன்",
+    "te-IN": "నేను ఇంటికి వెళ్తున్నాను",
+    "hi-IN": "मैं घर जा रहा हूँ",
+    "en-US": "i am going home"
+  },
+  "can you help me": {
+    "kn-IN": "ನೀನು ನನಗೆ ಸಹಾಯ ಮಾಡಬಹುದೆ",
+    "ta-IN": "நீங்கள் எனக்கு உதவ முடியுமா",
+    "te-IN": "మీరు నాకు సహాయం చేయగలరా",
+    "hi-IN": "क्या आप मेरी मदद कर सकते हैं",
+    "en-US": "can you help me"
+  },
+  "please come in": {
+    "kn-IN": "ದಯವಿಟ್ಟು ಒಳಗೆ ಬನ್ನಿ",
+    "ta-IN": "தயவு செய்து உள்ளருங்கள்",
+    "te-IN": "దయచేసి లోపలికి రండి",
+    "hi-IN": "कृपया अंदर आइए",
+    "en-US": "please come in"
+  },
+  "have a nice day": {
+    "kn-IN": "ಒಳ್ಳೆಯ ದಿನವಿರಲಿ",
+    "ta-IN": "நல்ல நாளாக அமையட்டும்",
+    "te-IN": "మీకు మంచి రోజు కావాలి",
+    "hi-IN": "आपका दिन शुभ हो",
+    "en-US": "have a nice day"
+  },
+  "are you busy": {
+    "kn-IN": "ನೀವೇನು ಕೆಲಸದಲ್ಲಿ ನಿರತರಾಗಿದ್ದೀರಾ",
+    "ta-IN": "நீங்கள் பிசியா?",
+    "te-IN": "మీరేమైనా బిజీగా ఉన్నారా?",
+    "hi-IN": "क्या आप व्यस्त हैं?",
+    "en-US": "are you busy"
+  },
+  "do you understand": {
+    "kn-IN": "ನೀವು ತಿಳಿದುಕೊಂಡಿದ್ದೀರಾ",
+    "ta-IN": "உங்களுக்குப் புரிகிறதா",
+    "te-IN": "మీకు అర్థమవుతుందా",
+    "hi-IN": "क्या आप समझ रहे हैं",
+    "en-US": "do you understand"
+  },
+  "i don't know": {
+    "kn-IN": "ನನಗೆ ಗೊತ್ತಿಲ್ಲ",
+    "ta-IN": "எனக்குத் தெரியாது",
+    "te-IN": "నాకు తెలియదు",
+    "hi-IN": "मुझे नहीं पता",
+    "en-US": "i don't know"
+  },
+  "what time is it": {
+    "kn-IN": "ಈಗ ಸಮಯ ಎನು",
+    "ta-IN": "இப்போது எத்தனை மணி",
+    "te-IN": "ఇప్పుడు టైం ఎంత",
+    "hi-IN": "अभी कितना समय हुआ है",
+    "en-US": "what time is it"
+  },
+  "i am hungry": {
+    "kn-IN": "ನನಗೆ ಹೊತ್ತಾಗಿದ್ದೆ",
+    "ta-IN": "எனக்கு பசிக்கிறது",
+    "te-IN": "నాకు ఆకలిగా ఉంది",
+    "hi-IN": "मैं भूखा हूँ",
+    "en-US": "i am hungry"
+  },
+  "i am tired": {
+    "kn-IN": "ನಾನು ಒತ್ತಾಯಗೊಂಡಿದ್ದೇನೆ",
+    "ta-IN": "நான் சோர்ந்துவிட்டேன்",
+    "te-IN": "నేను అలసిపోయాను",
+    "hi-IN": "मैं थक गया हूँ",
+    "en-US": "i am tired"
+  },
+  "where is the bathroom": {
+    "kn-IN": "ಬಾತ್ ರೂಮ್ ಎಲ್ಲಿದೆ",
+    "ta-IN": "குளியல் அறை எங்கே",
+    "te-IN": "బాత్‌రూమ్ ఎక్కడ ఉన్నది",
+    "hi-IN": "बाथरूम कहाँ है",
+    "en-US": "where is the bathroom"
+  },
+  "see you tomorrow": {
+    "kn-IN": "ನಾಳೆ ಭೇಟಿಯಾಗೋಣ",
+    "ta-IN": "நாளை சந்திப்போம்",
+    "te-IN": "రేపు కలుద్దాం",
+    "hi-IN": "कल मिलेंगे",
+    "en-US": "see you tomorrow"
+  },
+  "happy birthday": {
+    "kn-IN": "ಹುಟ್ಟುಹಬ್ಬದ ಶುಭಾಶಯಗಳು",
+    "ta-IN": "பிறந்த நாள் வாழ்த்துகள்",
+    "te-IN": "పుట్టినరోజు శుభాకాంక్షలు",
+    "hi-IN": "जन्मदिन मुबारक हो",
+    "en-US": "happy birthday"
+  }
+      // add more words as needed
+    };
+
+    // Translate each word using dictionary or fallback to original
+    function translateWord(word, lang) {
+      const w = word.toLowerCase();
+      if (dictionary[w] && dictionary[w][lang]) {
+        return dictionary[w][lang];
+      } else {
+        return word;
+      }
+    }
+
+    function translateSentence(sentence, lang) {
+      const words = sentence.split(/\s+/);
+      const translatedWords = words.map(word => translateWord(word, lang));
+      return translatedWords.join(" ");
+    }
+
+    function speak(text, lang) {
+      if (!window.speechSynthesis) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!window.SpeechRecognition) {
+      document.getElementById("status").textContent =
+        "Speech Recognition not supported in this browser.";
+    } else {
+      const recognition = new window.SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      const transcriptElem = document.getElementById("transcript");
+      const translationElem = document.getElementById("translation");
+      const statusElem = document.getElementById("status");
+      const startBtn = document.getElementById("start-btn");
+      const stopBtn = document.getElementById("stop-btn");
+      const langSelect = document.getElementById("language");
+      let listening = false;
+
+      recognition.onstart = () => {
+        statusElem.textContent = "Listening...";
+      };
+
+      recognition.onresult = event => {
+        const last = event.results.length - 1;
+        const text = event.results[last][0].transcript.trim();
+        transcriptElem.textContent = text;
+        statusElem.textContent = "Heard: " + text;
+
+        // Basic command processing for background color change or reset
+        let outputText = text;
+        if (/reset/i.test(text)) {
+          document.body.style.background = "#f4f4f9";
+          statusElem.textContent = "Background reset!";
+          outputText = "reset";
+        }
+        let colorMatch = text.match(/background.*(red|blue|green|yellow|white|black)/i);
+        if (colorMatch) {
+          const color = colorMatch[1].toLowerCase();
+          document.body.style.background = color;
+          statusElem.textContent = "Background changed: " + color;
+          outputText = "background " + color;
+        }
+
+        const selectedLang = langSelect.value;
+
+        // Translate word-by-word
+        const translatedSentence = translateSentence(outputText, selectedLang);
+
+        translationElem.textContent = translatedSentence;
+
+        // Speak translated sentence
+        speak(translatedSentence, selectedLang);
+      };
+
+      recognition.onerror = event => {
+        statusElem.textContent = "Error: " + event.error;
+      };
+
+      recognition.onend = () => {
+        statusElem.textContent = "Idle";
+        listening = false;
+      };
+
+      startBtn.onclick = () => {
+        if (!listening) {
+          recognition.start();
+          listening = true;
+        }
+      };
+      stopBtn.onclick = () => {
+        if (listening) {
+          recognition.stop();
+          listening = false;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
